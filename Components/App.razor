@@ -7,9 +7,9 @@
     <base href="/" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
-    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="app.css?v=vintage-film-2" />
     <link rel="stylesheet" href="RPL2Kenangan.styles.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <HeadOutlet @rendermode="InteractiveServer" />
@@ -19,6 +19,29 @@
     <Routes @rendermode="InteractiveServer" />
     <script src="_framework/blazor.web.js"></script>
     <script src="template-engine.js"></script>
+    <script>
+        window.rpl2DeletePhoto = async function (category, fileName) {
+            const response = await fetch('/admin/delete-photo?category=' + encodeURIComponent(category) + '&fileName=' + encodeURIComponent(fileName), { method: 'POST' });
+            return response.ok;
+        };
+        window.rpl2DeleteBulletinNote = async function (name, text, at, color) {
+            const query = new URLSearchParams({ name, text, at: new Date(at).toISOString(), color: String(color) });
+            const response = await fetch('/admin/delete-bulletin-note?' + query, { method: 'POST' });
+            return response.ok;
+        };
+        window.rpl2DeleteBulletinSticker = async function (text, at) {
+            const query = new URLSearchParams({ text, at: new Date(at).toISOString() });
+            const response = await fetch('/admin/delete-bulletin-sticker?' + query, { method: 'POST' });
+            return response.ok;
+        };
+
+        document.addEventListener('keydown', function (event) {
+            if (event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'a') {
+                event.preventDefault();
+                window.location.href = '/admin/login';
+            }
+        });
+    </script>
 </body>
 
 </html>

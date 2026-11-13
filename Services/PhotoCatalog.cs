@@ -71,6 +71,22 @@ public class PhotoCatalog
         }
     }
 
+    public bool Delete(PhotoItem photo)
+    {
+        var category = Path.GetFileName(photo.Category);
+        var fileName = Path.GetFileName(photo.FileName);
+        if (string.IsNullOrWhiteSpace(category) || string.IsNullOrWhiteSpace(fileName)) return false;
+
+        var categoryRoot = Path.GetFullPath(Path.Combine(_root, category));
+        var path = Path.GetFullPath(Path.Combine(categoryRoot, fileName));
+        if (!path.StartsWith(categoryRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return false;
+        if (!File.Exists(path)) return false;
+
+        File.Delete(path);
+        Rescan();
+        return true;
+    }
+
     public static string EmojiFor(string category)
     {
         return category.ToLowerInvariant() switch

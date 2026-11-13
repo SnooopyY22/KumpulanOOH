@@ -52,6 +52,17 @@ public class CommentStore
         }
     }
 
+    public void Remove(string photoKey)
+    {
+        lock (_lock)
+        {
+            if (_data.Remove(photoKey))
+            {
+                File.WriteAllText(_path, JsonSerializer.Serialize(_data, new JsonSerializerOptions { WriteIndented = true }));
+            }
+        }
+    }
+
     public void Add(string photoKey, string name, string text)
     {
         lock (_lock)

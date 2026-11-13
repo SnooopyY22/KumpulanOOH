@@ -15,22 +15,26 @@
     <div class="template-selector">
         <button class="template-card @(_selectedTemplate == "collage" ? "active" : "")" 
                 @onclick='() => SelectTemplate("collage")'>
-            <span class="tc-icon">🎨</span>
             <span class="tc-name">Collage Maker</span>
             <span class="tc-desc">Grid multi-foto</span>
         </button>
         <button class="template-card @(_selectedTemplate == "frame" ? "active" : "")" 
                 @onclick='() => SelectTemplate("frame")'>
-            <span class="tc-icon">🖼️</span>
             <span class="tc-name">Photo Frame</span>
             <span class="tc-desc">Border & frame</span>
         </button>
         <button class="template-card @(_selectedTemplate == "polaroid" ? "active" : "")" 
                 @onclick='() => SelectTemplate("polaroid")'>
-            <span class="tc-icon">📷</span>
             <span class="tc-name">Polaroid Effect</span>
             <span class="tc-desc">Instant cam style</span>
         </button>
+        @foreach (var item in ExtraTemplates)
+        {
+            <button class="template-card @(_selectedTemplate == item.Key ? "active" : "")" @onclick='() => SelectTemplate(item.Key)'>
+                <span class="tc-name">@item.Name</span>
+                <span class="tc-desc">@item.Description</span>
+            </button>
+        }
     </div>
 
     @if (!string.IsNullOrEmpty(_selectedTemplate))
@@ -47,11 +51,25 @@
         {
             <PolaroidTemplate Photos="Catalog.Photos.ToList()" />
         }
+        else
+        {
+            var selected = ExtraTemplates.First(x => x.Key == _selectedTemplate);
+            <ExtraTemplate Photos="Catalog.Photos.ToList()" Kind="@selected.Key" Title="@selected.Name" />
+        }
     }
 </div>
 
 @code {
     private string _selectedTemplate = "";
+    private static readonly TemplateOption[] ExtraTemplates =
+    [
+        new("filmstrip", "Film Strip", "Negatif film klasik"),
+        new("photobooth", "Photobooth", "Empat frame vertikal"),
+        new("postcard", "Postcard", "Kartu pos kenangan"),
+        new("scrapbook", "Scrapbook", "Kolase kertas vintage"),
+        new("contact", "Contact Sheet", "Lembar kontak fotografer")
+    ];
+    private sealed record TemplateOption(string Key, string Name, string Description);
 
     private void SelectTemplate(string template)
     {

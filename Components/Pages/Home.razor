@@ -12,12 +12,12 @@
     }
     <div class="hero-overlay"></div>
     <div class="hero-content">
-        <span class="hero-badge">KELAS XII · RPL 2 · DIGITAL YEARBOOK</span>
+        <span class="hero-badge">Digital yearbook kelas XII RPL 2</span>
         <h1>Kenangan kita,<br />selamanya.</h1>
         <p>@Catalog.TotalCount momen, @Catalog.Categories.Count kategori, satu kelas yang gak akan tergantikan. Dari kelas, villa, sampai hari ijazah — semuanya ada di sini.</p>
         <div class="hero-actions">
             <a href="galeri" class="btn-hero primary">Lihat Galeri</a>
-            <a href="#kategori" class="btn-hero ghost">Jelajahi Kategori ↓</a>
+            <a href="#kategori" class="btn-hero ghost">Jelajahi kategori</a>
         </div>
         <div class="hero-chips">
             <span class="hero-chip">XII RPL 2</span>
@@ -50,11 +50,10 @@
 <section id="kategori" class="section">
     <div class="section-head">
         <div>
-            <span class="section-kicker">KATEGORI</span>
             <h2 class="section-title">Momen per kategori</h2>
             <p class="section-sub">Klik untuk langsung terjun ke galerinya.</p>
         </div>
-        <a href="galeri" class="btn-hero ghost">Semua foto →</a>
+        <a href="galeri" class="btn-hero ghost">Semua foto</a>
     </div>
     <div class="category-grid">
         @foreach (var cat in Catalog.Categories)
@@ -71,11 +70,10 @@
 <section class="section">
     <div class="section-head">
         <div>
-            <span class="section-kicker">SOROTAN</span>
             <h2 class="section-title">Pilihan momen kita</h2>
             <p class="section-sub">Beberapa bingkai yang gak boleh dilupakan.</p>
         </div>
-        <a href="galeri" class="btn-hero ghost">Buka galeri →</a>
+        <a href="galeri" class="btn-hero ghost">Buka galeri</a>
     </div>
     <div class="highlight-strip">
         @for (var i = 0; i < _highlights.Count; i++)

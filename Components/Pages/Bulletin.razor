@@ -1,0 +1,125 @@
+@page "/bulletin"
+@rendermode InteractiveServer
+@inject BulletinStore Store
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
+
+<PageTitle>Papan Buletin — Kenangan XII RPL 2</PageTitle>
+
+<div class="bulletin-page">
+    <header class="bulletin-intro">
+        <span class="section-kicker">PAPAN BULETIN</span>
+        <h1>Tinggalkan satu kalimat.</h1>
+        <p>Pesan kecil, cerita singkat, atau candaan yang ingin tetap tinggal di sini.</p>
+    </header>
+
+    <section class="bulletin-compose">
+        <div class="bulletin-panel">
+            <h2>Tulis pesan</h2>
+            <input @bind="_name" placeholder="Nama kamu" maxlength="40" />
+            <textarea @bind="_text" placeholder="Tulis pesan untuk teman-teman..." maxlength="280" aria-label="Isi pesan"></textarea>
+            <div class="bulletin-form-row">
+                <select @bind="_color" aria-label="Warna pesan">
+                    <option value="0">Krem</option>
+                    <option value="1">Hijau</option>
+                    <option value="2">Merah</option>
+                    <option value="3">Biru</option>
+                </select>
+                <button class="bulletin-button" @onclick="AddNote">Tempel pesan</button>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(_feedback))
+            {
+                <div class="bulletin-feedback">@_feedback</div>
+            }
+        </div>
+
+        <div class="bulletin-panel bulletin-sticker-panel">
+            <h2>Tambah sticker</h2>
+            <p>Sticker teks singkat untuk menghias papan.</p>
+            <input @bind="_sticker" placeholder="Contoh: jangan lupa reuni!" maxlength="60" aria-label="Isi sticker" />
+            <button class="bulletin-button" @onclick="AddSticker">Tambahkan sticker</button>
+        </div>
+    </section>
+
+    <section class="bulletin-board">
+        @if (!Store.Notes.Any() && !Store.Stickers.Any())
+        {
+            <div class="bulletin-empty">Papan masih kosong. Jadilah yang pertama meninggalkan pesan.</div>
+        }
+        @foreach (var sticker in Store.Stickers)
+        {
+            <span class="bulletin-sticker">@sticker.Text
+                @if (_isAdmin)
+                {
+                    <button class="bulletin-delete" @onclick="() => DeleteStickerAsync(sticker)" aria-label="Hapus sticker">×</button>
+                }
+            </span>
+        }
+        @foreach (var note in Store.Notes)
+        {
+            <article class="bulletin-note color-@note.Color">
+                <p>@note.Text</p>
+                <footer><strong>@note.Name</strong><time>@note.At.ToString("dd MMM yyyy")</time></footer>
+                @if (_isAdmin)
+                {
+                    <button class="bulletin-note-delete" @onclick="() => DeleteNoteAsync(note)">Hapus</button>
+                }
+            </article>
+        }
+    </section>
+</div>
+
+@code {
+    private string _name = "";
+    private string _text = "";
+    private string _sticker = "";
+    private string _feedback = "";
+    private int _color;
+    private bool _isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _isAdmin = state.User.Identity?.IsAuthenticated ?? false;
+    }
+
+    private async Task DeleteNoteAsync(BulletinNote note)
+    {
+        if (!_isAdmin || !await JS.InvokeAsync<bool>("confirm", "Hapus pesan bulletin ini?")) return;
+        var deleted = await JS.InvokeAsync<bool>("rpl2DeleteBulletinNote", note.Name, note.Text, note.At, note.Color);
+        if (deleted) StateHasChanged();
+    }
+
+    private async Task DeleteStickerAsync(BulletinSticker sticker)
+    {
+        if (!_isAdmin || !await JS.InvokeAsync<bool>("confirm", "Hapus sticker ini?")) return;
+        var deleted = await JS.InvokeAsync<bool>("rpl2DeleteBulletinSticker", sticker.Text, sticker.At);
+        if (deleted) StateHasChanged();
+    }
+
+    private void AddNote()
+    {
+        if (string.IsNullOrWhiteSpace(_text))
+        {
+            _feedback = "Isi pesan terlebih dahulu.";
+            return;
+        }
+
+        Store.AddNote(_name, _text, _color);
+        _text = "";
+        _feedback = "Pesan berhasil ditempel di papan.";
+    }
+
+    private void AddSticker()
+    {
+        if (string.IsNullOrWhiteSpace(_sticker))
+        {
+            _feedback = "Isi sticker terlebih dahulu.";
+            return;
+        }
+
+        Store.AddSticker(_sticker);
+        _sticker = "";
+        _feedback = "Sticker berhasil ditambahkan.";
+    }
+}

@@ -1,0 +1,64 @@
+@page "/admin"
+@attribute [Authorize]
+@inject PhotoCatalog Catalog
+@inject CommentStore Comments
+@inject BulletinStore Bulletin
+@inject IJSRuntime JS
+
+<PageTitle>Admin — Kenangan XII RPL 2</PageTitle>
+
+<div class="admin-page">
+    <header class="admin-head">
+        <div>
+            <span class="section-kicker">PANEL ADMIN</span>
+            <h1>Kelola yearbook.</h1>
+            <p>Ruang privat untuk memantau isi dan aktivitas website.</p>
+        </div>
+        <a class="admin-logout" href="/admin/logout">Keluar</a>
+    </header>
+
+    <div class="admin-stats">
+        <div><b>@Catalog.TotalCount</b><span>foto</span></div>
+        <div><b>@Catalog.Categories.Count</b><span>kategori</span></div>
+        <div><b>@TotalComments</b><span>komentar</span></div>
+        <div><b>@Bulletin.Notes.Count</b><span>pesan bulletin</span></div>
+    </div>
+
+    <section class="admin-panel">
+        <div class="admin-panel-head">
+            <div>
+                <span class="section-kicker">MODERASI</span>
+                <h2>Pesan bulletin terbaru</h2>
+            </div>
+            <a href="/bulletin">Lihat papan</a>
+        </div>
+        @if (!Bulletin.Notes.Any())
+        {
+            <p class="admin-muted">Belum ada pesan bulletin.</p>
+        }
+        else
+        {
+            <div class="admin-list">
+                @foreach (var note in Bulletin.Notes.Take(10))
+                {
+                    <div class="admin-list-item">
+                        <div><b>@note.Name</b><p>@note.Text</p></div>
+                        <time>@note.At.ToString("dd MMM yyyy, HH:mm")</time>
+                        <button class="admin-delete-bulletin" @onclick="() => DeleteNoteAsync(note)">Hapus</button>
+                    </div>
+                }
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private int TotalComments => Catalog.Photos.Sum(p => Comments.Count(p.Key));
+
+    private async Task DeleteNoteAsync(BulletinNote note)
+    {
+        if (!await JS.InvokeAsync<bool>("confirm", "Hapus pesan bulletin ini?")) return;
+        var deleted = await JS.InvokeAsync<bool>("rpl2DeleteBulletinNote", note.Name, note.Text, note.At, note.Color);
+        if (deleted) StateHasChanged();
+    }
+}

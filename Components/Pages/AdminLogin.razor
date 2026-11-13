@@ -1,0 +1,28 @@
+@page "/admin/login"
+@inject NavigationManager Navigation
+
+<PageTitle>Admin Login</PageTitle>
+
+<div class="admin-login-page">
+    <div class="admin-login-card">
+        <span class="section-kicker">AREA TERBATAS</span>
+        <h1>Admin</h1>
+        <p>Masuk untuk mengelola isi digital yearbook.</p>
+        <form method="post" action="/admin/sign-in">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" required />
+            <button type="submit">Masuk</button>
+        </form>
+        @if (Error)
+        {
+            <div class="admin-error">Password salah.</div>
+        }
+        <a href="/">Kembali ke beranda</a>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    public string? ErrorQuery { get; set; }
+    private bool Error => ErrorQuery == "1";
+}

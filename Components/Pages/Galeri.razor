@@ -2,6 +2,8 @@
 @inject PhotoCatalog Catalog
 @inject CommentStore Comments
 @inject IWebHostEnvironment Env
+@inject AuthenticationStateProvider AuthState
+@inject IJSRuntime JS
 
 <PageTitle>Galeri — XII RPL 2</PageTitle>
 
@@ -86,13 +88,18 @@
     else
     {
         <div class="photo-grid">
-            @for (var i = 0; i < _visible.Count; i++)
+            @for (var i = 0; i < _paged.Count; i++)
             {
-                var index = i;
-                var cCount = Comments.Count(_visible[index].Key);
+                var index = _pageStart + i;
+                var photo = _paged[i];
+                var cCount = Comments.Count(photo.Key);
                 <button class="photo-cell @(i % 5 == 0 ? "tall" : "")" @onclick='() => Open(index)'>
-                    <img src="@_visible[index].Url" alt="@_visible[index].Category" loading="lazy" />
-                    <span class="photo-tag">@_visible[index].Category</span>
+                    <img src="@photo.Url" alt="@photo.Category" loading="lazy" decoding="async" />
+                    <span class="photo-tag">@photo.Category</span>
+                    @if (_isAdmin)
+                    {
+                        <span class="admin-delete-badge" @onclick:stopPropagation="true" @onclick="() => DeletePhotoAsync(photo)">Hapus</span>
+                    }
                     @if (cCount > 0)
                     {
                         <span class="comment-badge">@cCount komentar</span>
@@ -100,6 +107,12 @@
                 </button>
             }
         </div>
+        @if (_paged.Count < _visible.Count)
+        {
+            <div class="gallery-load-more">
+                <button class="btn-hero ghost" @onclick="LoadMore">Muat lebih banyak (@(_visible.Count - _paged.Count) tersisa)</button>
+            </div>
+        }
     }
 </div>
 
@@ -124,7 +137,7 @@
                 <div class="lbc-list">
                     @if (_currentComments.Count == 0)
                     {
-                        <div class="lbc-empty">Belum ada komentar. Jadilah yang pertama! ✍️</div>
+                        <div class="lbc-empty">Belum ada komentar. Jadilah yang pertama!</div>
                     }
                     else
                     {
@@ -163,7 +176,10 @@
     [SupplyParameterFromQuery(Name = "kategori")]
     public string? SelectedCategory { get; set; }
 
+    private const int PageSize = 48;
     private List<PhotoItem> _visible = new();
+    private List<PhotoItem> _paged = new();
+    private int _pageStart;
     private string _search = "";
     private int _current;
     private bool _lightboxOpen;
@@ -183,10 +199,18 @@
     private string _newCategory = "";
     private int _uploadTotal;
     private int _doneCount;
+    private bool _isAdmin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _isAdmin = state.User.Identity?.IsAuthenticated ?? false;
+    }
 
     protected override void OnParametersSet()
     {
         _visible = Catalog.ByCategory(SelectedCategory);
+        ResetPaging();
         _current = 0;
         _totalComments = Catalog.Photos.Sum(p => Comments.Count(p.Key));
     }
@@ -195,18 +219,41 @@
     {
         SelectedCategory = category;
         _visible = Catalog.ByCategory(category);
+        ResetPaging();
         _current = 0;
+    }
+
+    private void ResetPaging()
+    {
+        _pageStart = 0;
+        _paged = _visible.Take(PageSize).ToList();
+    }
+
+    private void LoadMore()
+    {
+        _pageStart = _paged.Count;
+        _paged.AddRange(_visible.Skip(_pageStart).Take(PageSize));
     }
 
     private async Task Open(int index)
     {
-        _current = index;
+        _current = _pageStart + index;
         _lightboxOpen = true;
         LoadComments();
         await _pageRef.FocusAsync();
     }
 
     private void LoadComments() => _currentComments = Comments.Get(_visible[_current].Key);
+
+    private async Task DeletePhotoAsync(PhotoItem photo)
+    {
+        if (!_isAdmin || !await JS.InvokeAsync<bool>("confirm", $"Hapus foto {photo.FileName}?")) return;
+        var ok = await JS.InvokeAsync<bool>("rpl2DeletePhoto", photo.Category, photo.FileName);
+        if (!ok) return;
+        Catalog.Rescan();
+        _visible = Catalog.ByCategory(SelectedCategory);
+        _current = Math.Min(_current, Math.Max(0, _visible.Count - 1));
+    }
 
     private void Close() => _lightboxOpen = false;
 
@@ -246,7 +293,25 @@
         return Task.CompletedTask;
     }
 
-    private void OnFilesSelected(InputFileChangeEventArgs e) => _selectedFiles = e.GetMultipleFiles(30);
+    private void OnFilesSelected(InputFileChangeEventArgs e)
+    {
+        const long maxBytes = 10 * 1024 * 1024;
+        var files = e.GetMultipleFiles(30);
+        var valid = files.Where(IsSupportedImage).Where(file => file.Size <= maxBytes).ToList();
+        var rejected = files.Count - valid.Count;
+
+        _selectedFiles = valid;
+        _uploadOk = rejected == 0;
+        _uploadMessage = rejected == 0
+            ? $"{valid.Count} foto siap diupload."
+            : $"{rejected} file ditolak. Gunakan JPG, PNG, GIF, atau WebP maksimal 10 MB per file.";
+    }
+
+    private static bool IsSupportedImage(IBrowserFile file)
+    {
+        var ext = Path.GetExtension(file.Name).ToLowerInvariant();
+        return ext is ".jpg" or ".jpeg" or ".png" or ".gif" or ".webp";
+    }
 
     private async Task UploadAsync()
     {

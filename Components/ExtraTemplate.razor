@@ -1,0 +1,187 @@
+@inject IJSRuntime JS
+
+<div class="template-showcase-container">
+    <div class="template-showcase-editor">
+        <div class="template-showcase-controls">
+            <label>Background:</label>
+            <input type="color" @bind="_background" @bind:event="onchange" />
+            <label>Caption:</label>
+            <input type="text" @bind="_caption" @bind:event="oninput" maxlength="45" placeholder="Tulis caption..." />
+            <label>Frame:</label>
+            <input type="range" min="0" max="24" value="@_padding" @oninput="OnPaddingChanged" />
+            <span>@_padding px</span>
+            <label>Filter:</label>
+            <select value="@_filter" @onchange="OnFilterChanged">
+                <option value="none">Normal</option>
+                <option value="vintage">Vintage</option>
+                <option value="sepia">Sepia</option>
+                <option value="bw">Hitam putih</option>
+                <option value="warm">Warm</option>
+                <option value="fade">Fade</option>
+            </select>
+            <label>Zoom:</label>
+            <input type="range" min="100" max="150" value="@_zoom" @oninput="OnZoomChanged" />
+            <label>Putar:</label>
+            <input type="range" min="-12" max="12" value="@_rotation" @oninput="OnRotationChanged" />
+            <label>Sticker:</label>
+            <select value="@_sticker" @onchange="OnStickerChanged">
+                <option value="none">Tanpa sticker</option>
+                <option value="heart">Hati</option>
+                <option value="star">Bintang</option>
+                <option value="camera">Kamera</option>
+                <option value="tape">Tape</option>
+                <option value="date">Tanggal</option>
+            </select>
+            <button class="btn-download" @onclick="Download">Download</button>
+        </div>
+        <div class="template-showcase-select">
+            <p>Pilih foto per slot (maks. @_maxPhotos):</p>
+            <div class="template-slots">
+                @for (var i = 0; i < _maxPhotos; i++)
+                {
+                    var slot = i;
+                    var photo = SlotPhoto(slot);
+                    <div class="template-slot @(slot == _activeSlot ? "active" : "")">
+                        <button class="template-slot-button" @onclick="() => SelectSlot(slot)">
+                            @if (photo is null)
+                            {
+                                <span>Slot @(slot + 1)<br /><small>Pilih foto</small></span>
+                            }
+                            else
+                            {
+                                <img src="@photo.Url" alt="@photo.Category" loading="lazy" decoding="async" />
+                                <span>Slot @(slot + 1)</span>
+                            }
+                        </button>
+                        @if (photo is not null)
+                        {
+                            <button class="template-slot-remove" @onclick="() => RemoveSlot(slot)" aria-label="Hapus foto dari slot @(slot + 1)">×</button>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="template-lookup">
+                <label for="template-category">Kategori foto</label>
+                <select id="template-category" @bind="_lookupCategory" @bind:after="RefreshLookup">
+                    <option value="">Pilih kategori dulu...</option>
+                    @foreach (var category in Categories)
+                    {
+                        <option value="@category">@category (@Photos.Count(p => p.Category == category))</option>
+                    }
+                </select>
+                @if (!string.IsNullOrEmpty(_lookupCategory))
+                {
+                    <div class="photo-grid-small">
+                        @foreach (var photo in LookupPhotos)
+                        {
+                            <button class="photo-thumb @(SlotPhoto(_activeSlot)?.Key == photo.Key ? "selected" : "")" @onclick="() => AssignPhoto(photo.Key)" title="@photo.FileName">
+                                <img src="@photo.Url" alt="@photo.Category" loading="lazy" decoding="async" />
+                                @if (SelectedKeys.Contains(photo.Key)) { <span class="chip-check">✓</span> }
+                            </button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <small>Pilih kategori untuk menampilkan foto.</small>
+                }
+            </div>
+        </div>
+        <div class="template-showcase-preview">
+            <canvas @ref="_canvas" width="720" height="520"></canvas>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public List<PhotoItem> Photos { get; set; } = new();
+    [Parameter] public string Kind { get; set; } = "filmstrip";
+    [Parameter] public string Title { get; set; } = "Template";
+    private ElementReference _canvas;
+    private List<string?> _slots = new();
+    private string _lookupCategory = "";
+    private int _activeSlot;
+    private string _background = "#eee5d3";
+    private string _caption = "XII RPL 2";
+    private int _padding = 12;
+    private string _filter = "none";
+    private int _zoom = 100;
+    private int _rotation;
+    private string _sticker = "none";
+    private int _maxPhotos => Kind is "photobooth" or "filmstrip" ? 4 : Kind == "contact" ? 9 : 3;
+
+    private IReadOnlyList<string> Categories => Photos.Select(p => p.Category).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x).ToList();
+    private IReadOnlyList<PhotoItem> LookupPhotos => Photos.Where(p => p.Category == _lookupCategory).Take(48).ToList();
+    private IReadOnlySet<string> SelectedKeys => _slots.Where(x => x is not null).Select(x => x!).ToHashSet();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _slots = Enumerable.Repeat<string?>(null, _maxPhotos).ToList();
+            await Render();
+        }
+    }
+
+    private PhotoItem? SlotPhoto(int slot) => slot >= 0 && slot < _slots.Count
+        ? Photos.FirstOrDefault(p => p.Key == _slots[slot])
+        : null;
+
+    private void SelectSlot(int slot)
+    {
+        _activeSlot = slot;
+        _lookupCategory = SlotPhoto(slot)?.Category ?? "";
+    }
+
+    private void RefreshLookup() => StateHasChanged();
+
+    private void AssignPhoto(string key)
+    {
+        if (_activeSlot < 0 || _activeSlot >= _slots.Count) return;
+        _slots[_activeSlot] = key;
+        _ = Render();
+    }
+
+    private void RemoveSlot(int slot)
+    {
+        if (slot < 0 || slot >= _slots.Count) return;
+        _slots[slot] = null;
+        _ = Render();
+    }
+
+    private Task OnPaddingChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value)) _padding = value;
+        return Render();
+    }
+
+    private Task OnFilterChanged(ChangeEventArgs e)
+    {
+        _filter = e.Value?.ToString() ?? "none";
+        return Render();
+    }
+
+    private Task OnZoomChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value)) _zoom = value;
+        return Render();
+    }
+
+    private Task OnRotationChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value)) _rotation = value;
+        return Render();
+    }
+
+    private Task OnStickerChanged(ChangeEventArgs e)
+    {
+        _sticker = e.Value?.ToString() ?? "none";
+        return Render();
+    }
+
+    private Task Render() => JS.InvokeVoidAsync("drawExtraTemplate", _canvas,
+        _slots.Where(key => key is not null).Select(key => Photos.FirstOrDefault(p => p.Key == key)?.Url).Where(url => url is not null).ToList(),
+        Kind, _background, _caption, _padding, _filter, _zoom, _rotation, _sticker).AsTask();
+
+    private Task Download() => JS.InvokeVoidAsync("downloadCanvas", _canvas, $"{Kind}-{DateTime.Now:yyyyMMdd-HHmmss}.png").AsTask();
+}

@@ -155,6 +155,58 @@ async function drawImageInCell(ctx, imageUrl, x, y, width, height) {
     });
 }
 
+window.drawExtraTemplate = async function(canvasRef, photoUrls, kind, background, caption, padding, filter, zoom, rotation, sticker) {
+    const canvas = canvasRef;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = background || '#eee5d3';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const urls = photoUrls.length ? photoUrls : [];
+    const count = urls.length;
+    const filterMap = { vintage: 'sepia(.45) saturate(1.25) contrast(1.05)', sepia: 'sepia(1)', bw: 'grayscale(1)', warm: 'saturate(1.35) sepia(.2)', fade: 'brightness(1.12) contrast(.82)' };
+    const imageFilter = filterMap[filter] || 'none';
+    const imageZoom = (Number(zoom) || 100) / 100;
+    const imageRotation = (Number(rotation) || 0) * Math.PI / 180;
+    const drawPhoto = async (url, x, y, width, height) => {
+        ctx.save();
+        ctx.translate(x + width / 2, y + height / 2);
+        ctx.rotate(imageRotation);
+        ctx.filter = imageFilter;
+        const scaledW = width * imageZoom, scaledH = height * imageZoom;
+        await drawImageInCell(ctx, url, -scaledW / 2, -scaledH / 2, scaledW, scaledH);
+        ctx.restore();
+    };
+    if (!count) {
+        ctx.fillStyle = '#65584b'; ctx.font = '24px serif'; ctx.textAlign = 'center';
+        ctx.fillText('Pilih foto untuk mulai', canvas.width / 2, canvas.height / 2);
+        return;
+    }
+    const gap = Number(padding) || 12;
+    if (kind === 'filmstrip') {
+        ctx.fillStyle = '#171515'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < Math.min(count, 4); i++) await drawPhoto(urls[i], gap + i * ((canvas.width - gap * 5) / 4 + gap), 105, (canvas.width - gap * 5) / 4, 270);
+        ctx.fillStyle = '#e7d7b9'; ctx.font = '18px monospace'; ctx.textAlign = 'center'; ctx.fillText(caption, canvas.width / 2, 55);
+    } else if (kind === 'photobooth') {
+        const w = (canvas.width - gap * 3) / 2, h = (canvas.height - gap * 3) / 2;
+        for (let i = 0; i < Math.min(count, 4); i++) await drawPhoto(urls[i], gap + (i % 2) * (w + gap), gap + Math.floor(i / 2) * (h + gap), w, h);
+        ctx.fillStyle = '#a4432f'; ctx.font = 'bold 20px serif'; ctx.textAlign = 'center'; ctx.fillText(caption, canvas.width / 2, canvas.height - 12);
+    } else if (kind === 'contact') {
+        const cols = 3, w = (canvas.width - gap * 4) / cols, h = 140;
+        for (let i = 0; i < Math.min(count, 9); i++) await drawPhoto(urls[i], gap + (i % cols) * (w + gap), 45 + Math.floor(i / cols) * (h + gap), w, h);
+        ctx.fillStyle = '#211c18'; ctx.font = '22px serif'; ctx.textAlign = 'center'; ctx.fillText(caption, canvas.width / 2, 28);
+    } else {
+        const w = canvas.width - gap * 2, h = 350;
+        await drawPhoto(urls[0], gap, 45, w, h);
+        if (kind === 'scrapbook') { ctx.strokeStyle = '#c28a35'; ctx.lineWidth = 10; ctx.strokeRect(gap / 2, 45 - gap / 2, w + gap, h + gap); }
+        ctx.fillStyle = '#211c18'; ctx.font = '24px serif'; ctx.textAlign = 'center'; ctx.fillText(caption, canvas.width / 2, 450);
+    }
+    if (sticker && sticker !== 'none') {
+        const stickers = { heart: '♥', star: '★', camera: '●', tape: '▰', date: new Date().toLocaleDateString('id-ID') };
+        ctx.save(); ctx.textAlign = 'center'; ctx.font = sticker === 'date' ? '16px monospace' : '42px serif';
+        ctx.fillStyle = sticker === 'heart' ? '#a4432f' : '#c28a35'; ctx.fillText(stickers[sticker] || '', canvas.width - 55, 45); ctx.restore();
+    }
+};
+
 window.downloadCanvas = function(canvasRef, filename) {
     const canvas = canvasRef;
     canvas.toBlob((blob) => {
